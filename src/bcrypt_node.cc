@@ -11,7 +11,7 @@
 
 namespace {
 
-    bool ValidateSalt(const char* salt) {
+    bool ValidateSalt(const char *salt) {
 
         if (!salt || *salt != '$') {
             return false;
@@ -26,12 +26,12 @@ namespace {
 
         if (salt[1] != '$') {
             switch (salt[1]) {
-            case 'a':
-            case 'b':
-                salt++;
-                break;
-            default:
-                return false;
+                case 'a':
+                case 'b':
+                    salt++;
+                    break;
+                default:
+                    return false;
             }
         }
 
@@ -47,7 +47,7 @@ namespace {
             return false;
         }
 
-        if (((uint8_t)1 << (uint8_t)n) < BCRYPT_MINROUNDS) {
+        if (((uint8_t) 1 << (uint8_t) n) < BCRYPT_MINROUNDS) {
             return false;
         }
 
@@ -67,32 +67,33 @@ namespace {
     /* SALT GENERATION */
 
     class SaltAsyncWorker : public Napi::AsyncWorker {
-        public:
-            SaltAsyncWorker(Napi::Function& callback, std::string seed, ssize_t rounds, char minor_ver)
-                : Napi::AsyncWorker(callback, "bcrypt:SaltAsyncWorker"), seed(seed), rounds(rounds), minor_ver(minor_ver) {
-            }
+    public:
+        SaltAsyncWorker(Napi::Function &callback, std::string seed, ssize_t rounds, char minor_ver)
+                : Napi::AsyncWorker(callback, "bcrypt:SaltAsyncWorker"), seed(seed), rounds(rounds),
+                  minor_ver(minor_ver) {
+        }
 
-            ~SaltAsyncWorker() {}
+        ~SaltAsyncWorker() {}
 
-            void Execute() {
-                char salt[_SALT_LEN];
-                bcrypt_gensalt(minor_ver, rounds, (u_int8_t *)&seed[0], salt);
-                this->salt = std::string(salt);
-            }
+        void Execute() {
+            char salt[_SALT_LEN];
+            bcrypt_gensalt(minor_ver, rounds, (u_int8_t * ) & seed[0], salt);
+            this->salt = std::string(salt);
+        }
 
-            void OnOK() {
-                Napi::HandleScope scope(Env());
-                Callback().Call({Env().Undefined(), Napi::String::New(Env(), salt)});
-            }
+        void OnOK() {
+            Napi::HandleScope scope(Env());
+            Callback().Call({Env().Undefined(), Napi::String::New(Env(), salt)});
+        }
 
-        private:
-            std::string seed;
-            std::string salt;
-            ssize_t rounds;
-            char minor_ver;
+    private:
+        std::string seed;
+        std::string salt;
+        ssize_t rounds;
+        char minor_ver;
     };
 
-    Napi::Value GenerateSalt(const Napi::CallbackInfo& info) {
+    Napi::Value GenerateSalt(const Napi::CallbackInfo &info) {
         Napi::Env env = info.Env();
         if (info.Length() < 4) {
             throw Napi::TypeError::New(env, "4 arguments expected");
@@ -100,20 +101,20 @@ namespace {
         if (!info[0].IsString()) {
             throw Napi::TypeError::New(env, "First argument must be a string");
         }
-        if (!info[2].IsBuffer() || (info[2].As<Napi::Buffer<char>>()).Length() != 16) {
+        if (!info[2].IsBuffer() || (info[2].As < Napi::Buffer < char >> ()).Length() != 16) {
             throw Napi::TypeError::New(env, "Second argument must be a 16 byte Buffer");
         }
 
         const char minor_ver = ToCharVersion(info[0].As<Napi::String>());
         const int32_t rounds = info[1].As<Napi::Number>();
-        Napi::Buffer<char> seed = info[2].As<Napi::Buffer<char>>();
+        Napi::Buffer<char> seed = info[2].As < Napi::Buffer < char >> ();
         Napi::Function callback = info[3].As<Napi::Function>();
-        SaltAsyncWorker* saltWorker = new SaltAsyncWorker(callback, std::string(seed.Data(), 16), rounds, minor_ver);
+        SaltAsyncWorker *saltWorker = new SaltAsyncWorker(callback, std::string(seed.Data(), 16), rounds, minor_ver);
         saltWorker->Queue();
         return env.Undefined();
     }
 
-    Napi::Value GenerateSaltSync(const Napi::CallbackInfo& info) {
+    Napi::Value GenerateSaltSync(const Napi::CallbackInfo &info) {
         Napi::Env env = info.Env();
         if (info.Length() < 3) {
             throw Napi::TypeError::New(env, "3 arguments expected");
@@ -121,13 +122,13 @@ namespace {
         if (!info[0].IsString()) {
             throw Napi::TypeError::New(env, "First argument must be a string");
         }
-        if (!info[2].IsBuffer() || (info[2].As<Napi::Buffer<char>>()).Length() != 16) {
+        if (!info[2].IsBuffer() || (info[2].As < Napi::Buffer < char >> ()).Length() != 16) {
             throw Napi::TypeError::New(env, "Third argument must be a 16 byte Buffer");
         }
         const char minor_ver = ToCharVersion(info[0].As<Napi::String>());
         const int32_t rounds = info[1].As<Napi::Number>();
-        Napi::Buffer<u_int8_t> buffer = info[2].As<Napi::Buffer<u_int8_t>>();
-        u_int8_t* seed = (u_int8_t*) buffer.Data();
+        Napi::Buffer <u_int8_t> buffer = info[2].As < Napi::Buffer < u_int8_t >> ();
+        u_int8_t *seed = (u_int8_t *) buffer.Data();
         char salt[_SALT_LEN];
         bcrypt_gensalt(minor_ver, rounds, seed, salt);
         return Napi::String::New(env, salt, strlen(salt));
@@ -136,45 +137,46 @@ namespace {
     /* ENCRYPT DATA - USED TO BE HASHPW */
 
     class EncryptAsyncWorker : public Napi::AsyncWorker {
-        public:
-            EncryptAsyncWorker(Napi::Function& callback, std::string input, std::string salt)
+    public:
+        EncryptAsyncWorker(Napi::Function &callback, std::string input, std::string salt)
                 : Napi::AsyncWorker(callback, "bcrypt:EncryptAsyncWorker"), input(input), salt(salt) {
-            }
+        }
 
-            ~EncryptAsyncWorker() {}
+        ~EncryptAsyncWorker() {}
 
-            void Execute() {
-                if (!(ValidateSalt(salt.c_str()))) {
-                    SetError("Invalid salt. Salt must be in the form of: $Vers$log2(NumRounds)$saltvalue");
-                }
-                char bcrypted[_PASSWORD_LEN];
-                bcrypt(input.c_str(), salt.c_str(), bcrypted);
-                output = std::string(bcrypted);
+        void Execute() {
+            if (!(ValidateSalt(salt.c_str()))) {
+                SetError("Invalid salt. Salt must be in the form of: $Vers$log2(NumRounds)$saltvalue");
             }
+            char bcrypted[_PASSWORD_LEN];
+            bcrypt(input.c_str(), salt.c_str(), bcrypted);
+            output = std::string(bcrypted);
+        }
 
-            void OnOK() {
-                Napi::HandleScope scope(Env());
-                Callback().Call({Env().Undefined(),Napi::String::New(Env(), output)});
-            }
-        private:
-            std::string input;
-            std::string salt;
-            std::string output;
+        void OnOK() {
+            Napi::HandleScope scope(Env());
+            Callback().Call({Env().Undefined(), Napi::String::New(Env(), output)});
+        }
+
+    private:
+        std::string input;
+        std::string salt;
+        std::string output;
     };
 
-    Napi::Value Encrypt(const Napi::CallbackInfo& info) {
+    Napi::Value Encrypt(const Napi::CallbackInfo &info) {
         if (info.Length() < 3) {
             throw Napi::TypeError::New(info.Env(), "3 arguments expected");
         }
         std::string data = info[0].As<Napi::String>();;
         std::string salt = info[1].As<Napi::String>();;
         Napi::Function callback = info[2].As<Napi::Function>();
-        EncryptAsyncWorker* encryptWorker = new EncryptAsyncWorker(callback, data, salt);
+        EncryptAsyncWorker *encryptWorker = new EncryptAsyncWorker(callback, data, salt);
         encryptWorker->Queue();
         return info.Env().Undefined();
     }
 
-    Napi::Value EncryptSync(const Napi::CallbackInfo& info) {
+    Napi::Value EncryptSync(const Napi::CallbackInfo &info) {
         Napi::Env env = info.Env();
         if (info.Length() < 2) {
             throw Napi::TypeError::New(info.Env(), "2 arguments expected");
@@ -190,51 +192,51 @@ namespace {
     }
 
     /* COMPARATOR */
-    inline bool CompareStrings(const char* s1, const char* s2) {
+    inline bool CompareStrings(const char *s1, const char *s2) {
         return strcmp(s1, s2) == 0;
     }
 
     class CompareAsyncWorker : public Napi::AsyncWorker {
-        public:
-            CompareAsyncWorker(Napi::Function& callback, std::string input, std::string encrypted)
+    public:
+        CompareAsyncWorker(Napi::Function &callback, std::string input, std::string encrypted)
                 : Napi::AsyncWorker(callback, "bcrypt:CompareAsyncWorker"), input(input), encrypted(encrypted) {
-                result = false;
+            result = false;
+        }
+
+        ~CompareAsyncWorker() {}
+
+        void Execute() {
+            char bcrypted[_PASSWORD_LEN];
+            if (ValidateSalt(encrypted.c_str())) {
+                bcrypt(input.c_str(), encrypted.c_str(), bcrypted);
+                result = CompareStrings(bcrypted, encrypted.c_str());
             }
+        }
 
-            ~CompareAsyncWorker() {}
+        void OnOK() {
+            Napi::HandleScope scope(Env());
+            Callback().Call({Env().Undefined(), Napi::Boolean::New(Env(), result)});
+        }
 
-            void Execute() {
-                char bcrypted[_PASSWORD_LEN];
-                if (ValidateSalt(encrypted.c_str())) {
-                    bcrypt(input.c_str(), encrypted.c_str(), bcrypted);
-                    result = CompareStrings(bcrypted, encrypted.c_str());
-                }
-            }
-
-            void OnOK() {
-                Napi::HandleScope scope(Env());
-                Callback().Call({Env().Undefined(), Napi::Boolean::New(Env(), result)});
-            }
-
-        private:
-            std::string input;
-            std::string encrypted;
-            bool result;
+    private:
+        std::string input;
+        std::string encrypted;
+        bool result;
     };
 
-    Napi::Value Compare(const Napi::CallbackInfo& info) {
+    Napi::Value Compare(const Napi::CallbackInfo &info) {
         if (info.Length() < 3) {
-                throw Napi::TypeError::New(info.Env(), "3 arguments expected");
+            throw Napi::TypeError::New(info.Env(), "3 arguments expected");
         }
         std::string input = info[0].As<Napi::String>();
         std::string encrypted = info[1].As<Napi::String>();
         Napi::Function callback = info[2].As<Napi::Function>();
-        CompareAsyncWorker* compareWorker = new CompareAsyncWorker(callback, input, encrypted);
+        CompareAsyncWorker *compareWorker = new CompareAsyncWorker(callback, input, encrypted);
         compareWorker->Queue();
         return info.Env().Undefined();
     }
 
-    Napi::Value CompareSync(const Napi::CallbackInfo& info) {
+    Napi::Value CompareSync(const Napi::CallbackInfo &info) {
         Napi::Env env = info.Env();
         if (info.Length() < 2) {
             throw Napi::TypeError::New(info.Env(), "2 arguments expected");
@@ -250,12 +252,74 @@ namespace {
         }
     }
 
-    Napi::Value GetRounds(const Napi::CallbackInfo& info) {
+    class CompareWithHashArrayAsyncWorker : public Napi::AsyncWorker {
+    public:
+        CompareWithHashArrayAsyncWorker(Napi::Function &callback, std::string input,
+                                        std::vector <std::string> hashArray)
+                : Napi::AsyncWorker(callback, "bcrypt:CompareWithHashArrayAsyncWorker"), input(input),
+                  hashArray(hashArray) {
+            result = false;
+        }
+
+        ~CompareWithHashArrayAsyncWorker() {}
+
+        void Execute() {
+            char bcrypted[_PASSWORD_LEN];
+            bool compareResult = false;
+
+            for (std::vector<std::string>::iterator it = hashArray.begin(); it != hashArray.end(); ++it) {
+                std::string encrypted = *it;
+                if (ValidateSalt(encrypted.c_str())) {
+                    bcrypt(input.c_str(), encrypted.c_str(), bcrypted);
+                    compareResult = CompareStrings(bcrypted, encrypted.c_str());
+                }
+
+                if (compareResult) {
+                    break;
+                }
+            }
+
+            result = compareResult;
+        }
+
+        void OnOK() {
+            Napi::HandleScope scope(Env());
+            Callback().Call({Env().Undefined(), Napi::Boolean::New(Env(), result)});
+        }
+
+    private:
+        std::string input;
+        std::vector <std::string> hashArray;
+        bool result;
+    };
+
+    Napi::Value CompareWithHashArray(const Napi::CallbackInfo &info) {
+        if (info.Length() < 3) {
+            throw Napi::TypeError::New(info.Env(), "3 arguments expected");
+        }
+        std::string input = info[0].As<Napi::String>();
+
+        Napi::Array hashes = info[1].As<Napi::Array>();
+        std::vector<std::string> hashArray = {};
+
+        for (unsigned int i = 0; i < hashes.Length(); ++i) {
+            hashArray.push_back(hashes.Get(i).ToString());
+        }
+
+        Napi::Function callback = info[2].As<Napi::Function>();
+        CompareWithHashArrayAsyncWorker *compareWithHashArrayAsyncWorker = new CompareWithHashArrayAsyncWorker(callback,
+                                                                                                               input,
+                                                                                                               hashArray);
+        compareWithHashArrayAsyncWorker->Queue();
+        return info.Env().Undefined();
+    }
+
+    Napi::Value GetRounds(const Napi::CallbackInfo &info) {
         Napi::Env env = info.Env();
         if (info.Length() < 1) {
             throw Napi::TypeError::New(env, "1 argument expected");
         }
-        std::string hash =  info[0].As<Napi::String>();
+        std::string hash = info[0].As<Napi::String>();
         u_int32_t rounds;
         if (!(rounds = bcrypt_get_rounds(hash.c_str()))) {
             throw Napi::Error::New(env, "invalid hash provided");
@@ -273,7 +337,9 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
     exports.Set(Napi::String::New(env, "gen_salt"), Napi::Function::New(env, GenerateSalt));
     exports.Set(Napi::String::New(env, "encrypt"), Napi::Function::New(env, Encrypt));
     exports.Set(Napi::String::New(env, "compare"), Napi::Function::New(env, Compare));
+    exports.Set(Napi::String::New(env, "compare_with_hash_array"), Napi::Function::New(env, CompareWithHashArray));
     return exports;
 }
 
-NODE_API_MODULE(NODE_GYP_MODULE_NAME, init)
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, init
+)

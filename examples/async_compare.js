@@ -16,6 +16,13 @@ bcrypt.genSalt(10, function(err, salt) {
       console.log('compared false: ' + res);
       console.log('compared false cb end: ' + (Date.now() - start) + 'ms');
     });
+
+    bcrypt.compareWithHashArray('test', [crypted], function (err, res) {
+      console.log('compared array true: ' + res);
+      console.log('compared array true cb end: ' + (Date.now() - start) + 'ms');
+    })
   });
 })
 console.log('end: ' + (Date.now() - start) + 'ms');
+
+

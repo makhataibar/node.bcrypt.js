@@ -221,6 +221,61 @@ module.exports.compare = function compare(data, hash, cb) {
     return bindings.compare(data, hash, cb);
 };
 
+/// compare raw data to hash array
+/// @param {String} data the data to hash array and compare
+/// @param {Array} hash array expected hash
+/// @param {Function} cb callback(err, matched) - matched is true if hashed data matches hash
+module.exports.compareWithHashArray = function compareWithHashArray(data, hashArray, cb){
+    var error;
+
+    if (typeof data === 'function') {
+        error = new Error('data and hash arguments required');
+        return process.nextTick(function() {
+            data(error);
+        });
+    }
+
+    if (typeof hash === 'function') {
+        error = new Error('data and hash arguments required');
+        return process.nextTick(function() {
+            hash(error);
+        });
+    }
+
+    // cb exists but is not a function
+    // return a rejecting promise
+    if (cb && typeof cb !== 'function') {
+        return promises.reject(new Error('cb must be a function or null to return a Promise'));
+    }
+
+    if (!cb) {
+        return promises.promise(compare, this, [data, hashArray]);
+    }
+
+    if (data == null || hashArray == null) {
+        error = new Error('data and hash arguments required');
+        return process.nextTick(function() {
+            cb(error);
+        });
+    }
+
+    if (typeof data !== 'string') {
+        error = new Error('data must be strings');
+        return process.nextTick(function() {
+            cb(error);
+        });
+    }
+
+    if(!Array.isArray(hashArray)){
+        error = new Error('hashArray must be array');
+        return process.nextTick(function() {
+            cb(error);
+        });
+    }
+
+    return bindings.compare_with_hash_array(data, hashArray, cb);
+};
+
 /// @param {String} hash extract rounds from this hash
 /// @return {Number} the number of rounds used to encrypt a given hash
 module.exports.getRounds = function getRounds(hash) {
