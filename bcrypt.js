@@ -249,7 +249,7 @@ module.exports.compareWithHashArray = function compareWithHashArray(data, hashAr
     }
 
     if (!cb) {
-        return promises.promise(compare_with_hash_array, this, [data, hashArray]);
+        return promises.promise(compareWithHashArray, this, [data, hashArray]);
     }
 
     if (data == null || hashArray == null) {
